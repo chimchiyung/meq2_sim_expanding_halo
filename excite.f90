@@ -1,42 +1,32 @@
-program fill
+program excite
  implicit none
- integer::nparticle,nbd=10**2,irun,navg=10**5,irec
- real(8)::pi=acos(-1._8),d2,d2t=0._8
- real(8)::t=0._8,tend=1._8*10**6,dt=.1_8
+ integer::nparticle,imain
+ real(8)::pi=acos(-1._8),d2=.0_8,d2t,d2end=.05
+ real(8)::t=0._8,tend=200._8,dt=.1_8
  real(8),dimension(:),allocatable::pth,th
  real(8),dimension(:),allocatable::pbd,thbd
  real(8),dimension(7,7)::b
  real(8),dimension(7)::a,c
- real(8)::Pt,G,pmin,den,pr,lambda,nh,Pw
+ real(8)::Pt,G,pmin,den,pr,nh,Pw
+ integer::nexcite=10**4,nbd=10**2
 
  call initran()
  call readparameter()
  call readpos()
  call loadrk6consts()
- open(50,file="d2.dat")
- write(50,*) t,d2
- irec=1
-! do while (t<tend)
- do while ((.06_8>d2).and.(d2>.01_8).and.(t<tend))
-  d2t=((navg-1)*d2t-sum(vp(pth,th,0._8))*lambda/(1-nh)/d2)/navg
-!  d2t=((navg-1)*d2t-sum(sin(2*th))*lambda)/navg
+ do imain=1,nexcite*10
+! do imain=1,10**2
+  d2t=(d2end-d2)/nexcite/dt
   call pqnew(pth,th)
 !  call renewbd()
 !  call pqnew(pbd,thbd)
 !  call rearrangebd()
 !  call rmpos()
-  call addpos()
-  pth=abs(pth)
+!  call addpos()
   d2=d2+d2t*dt
   t=t+dt
-  irec=irec+1
-  if (mod(irec,10**3)==0) then
-   write(50,*) t,d2
-   irec=0
-  end if
  end do
  call writepos()
- close(50)
  deallocate(pth)
  deallocate(th)
  deallocate(pbd)
@@ -45,29 +35,80 @@ program fill
 contains
 
  subroutine addpos()
-  integer::iadd,jadd,naddsum,ntemp,nadd
+  integer::iadd,jadd,kadd,naddsum,ntemp
+  integer,dimension(size(pbd))::nadd
   real(8),dimension(size(pbd))::qlow,qhigh,plow,phigh
-  real(8)::qnow,addprob,flux,radd=0._8
+  real(8)::qnow,addprob,flux
   real(8),dimension(:),allocatable::padd,qadd
   real(8),dimension(:),allocatable::ptemp,qtemp
 
-  nadd=floor(G*dt/2)
-  radd=radd+G*dt/2-floor(G*dt/2)
-  if (radd>1) then
-   nadd=nadd+1
-   radd=0._8
-  end if
-  allocate(padd(nadd),qadd(nadd))
-  call random_number(qadd)
-  qadd=pi*qadd
-  padd=pmin
+  nadd=0
+  
+  do iadd=1,size(pbd)
+   qhigh(iadd)=thbd(iadd)
+   phigh(iadd)=pbd(iadd)
+   if (iadd==1) then
+    qlow(iadd)=thbd(size(pbd))-pi
+    plow(iadd)=pbd(size(pbd))
+   else
+    qlow(iadd)=thbd(iadd-1)
+    plow(iadd)=pbd(iadd-1)
+   end if
 
-  ntemp=nparticle+nadd
+   if ((plow(iadd)>pmin).and.(pmin>phigh(iadd))) then
+    qhigh(iadd)=qlow(iadd)+(pmin-plow(iadd))&
+                           *(qhigh(iadd)-qlow(iadd))/(phigh(iadd)-plow(iadd))
+    phigh(iadd)=pmin
+   else if ((plow(iadd)<pmin).and.(pmin<phigh(iadd))) then
+    qlow(iadd)=qhigh(iadd)+(pmin-phigh(iadd))&
+                           *(qhigh(iadd)-qlow(iadd))/(phigh(iadd)-plow(iadd))
+    plow(iadd)=pmin
+   end if
+   flux=den*(qhigh(iadd)-qlow(iadd))&
+                         *((phigh(iadd)+plow(iadd))/2-pmin)
+   if (flux>0) then
+    nadd(iadd)=floor(flux)
+    call random_number(addprob)
+    if (addprob<mod(flux,1._8)) nadd(iadd)=nadd(iadd)+1
+   end if
+  end do
+
+  naddsum=sum(nadd)
+  allocate(padd(naddsum),qadd(naddsum))
+  kadd=1
+
+  do iadd=1,size(pbd)
+   do jadd=1,nadd(iadd)
+    call random_number(qadd(kadd))
+    call random_number(padd(kadd))
+!    qadd(kadd)=(qhigh(iadd)-qlow(iadd))&
+!                *(-(plow(iadd)-pmin)&
+!                  +sqrt((plow(iadd)-pmin)**2&
+!                        +qadd(kadd)*(phigh(iadd)+plow(iadd)-2*pmin)&
+!                                   *(phigh(iadd)-plow(iadd))))&
+!                /(phigh(iadd)-plow(iadd))&
+!               +qlow(iadd)
+!    padd(kadd)=pmin+(qadd(kadd)-qlow(iadd))/(qhigh(iadd)-qlow(iadd))&
+!                    *(phigh(iadd)-plow(iadd))*padd(kadd)
+    qadd(kadd)=qlow(iadd)+qadd(kadd)*(qhigh(iadd)-qlow(iadd))
+    padd(kadd)=pmin+padd(kadd)*(max(phigh(iadd),plow(iadd))-pmin)
+    do while (padd(kadd)>plow(iadd)+(qadd(kadd)-qlow(iadd))&
+                                    /(qhigh(iadd)-qlow(iadd))*(phigh(iadd)-plow(iadd)))
+     call random_number(qadd(kadd))
+     call random_number(padd(kadd))
+     qadd(kadd)=qlow(iadd)+qadd(kadd)*(qhigh(iadd)-qlow(iadd))
+     padd(kadd)=pmin+padd(kadd)*(max(phigh(iadd),plow(iadd))-pmin)
+    end do
+    kadd=kadd+1
+   end do
+  end do
+
+  ntemp=nparticle+naddsum
   allocate(ptemp(ntemp),qtemp(ntemp))
   ptemp(1:nparticle)=pth
   qtemp(1:nparticle)=th
   ptemp(nparticle+1:ntemp)=padd
-  qtemp(nparticle+1:ntemp)=qadd
+  qtemp(nparticle+1:ntemp)=mod(qadd+pi,pi)
   deallocate(pth)
   deallocate(th)
   nparticle=ntemp
@@ -122,7 +163,7 @@ contains
   dp=0._8
   dq=0._8
   do l1=1,6
-   dp(:,l1)=(vp(p1,q1,c(l1))+Pt)*dt
+   dp(:,l1)=vp(p1,q1,c(l1))*dt
    dq(:,l1)=vq(p1,q1,c(l1))*dt
    p1=p0
    q1=q0
@@ -131,7 +172,7 @@ contains
     q1=q1+b(l2,l1+1)*dq(:,l2)
    end do
   end do
-  dp(:,7)=(vp(p1,q1,c(l1))+Pt)*dt
+  dp(:,7)=vp(p1,q1,c(l1))*dt
   dq(:,7)=vq(p1,q1,c(l1))*dt
   do l1=1,7
    p0=p0+a(l1)*dp(:,l1)
@@ -146,8 +187,7 @@ contains
   real(8)::cp
   integer::ip
   do ip=1,size(p0)
-   vp(ip)=(d2+d2t*cp*dt)*(1-nh)&
-           *(min(p0(ip),1._8)/max(p0(ip),1._8)-p0(ip)/Pw**2)*2*sin(2*q0(ip))
+   vp(ip)=(d2+d2t*cp*dt)*(1-nh)*(min(p0(ip),1._8)/max(p0(ip),1._8)-p0(ip)/Pw**2)*2*sin(2*q0(ip))
   end do
  end function
 
@@ -215,20 +255,24 @@ contains
 
  subroutine writepos()
   integer::iwrite
-  open(30,file="pos.dat",status="replace")
+  open(30,file="posstart.dat",status="replace")
   write(30,*) nparticle
   write(30,*) d2
   do iwrite=1,nparticle
    write(30,*) pth(iwrite), th(iwrite)
   end do
   close(30)
+!  open(30,file="posbd.dat",status="replace")
+!  do iwrite=1,nbd
+!   write(30,*) pbd(iwrite), thbd(iwrite)
+!  end do
+!  close(30)  
  end subroutine
 
  subroutine readpos()
   integer::iread
-  open(30,file="posstart.dat",status="old")
+  open(30,file="posread.dat",status="old")
   read(30,*) nparticle
-  read(30,*) d2
   allocate(pth(nparticle),th(nparticle))
   do iread=1,nparticle
    read(30,*) pth(iread), th(iread)
@@ -253,7 +297,6 @@ contains
   read(31,*) Pw
   close(31)
   den=G/(2*pi*Pt)
-  lambda=nh*Pt/G
   Pw=1/Pw
   pr=2._8/(1-1/Pw**2)
  end subroutine
