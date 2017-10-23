@@ -1,4 +1,4 @@
-program fill
+program evolve
  implicit none
  integer::nparticle,nbd=10**2,irun,navg=10**5,irec
  real(8)::pi=acos(-1._8),d2,d2t=0._8
@@ -21,10 +21,6 @@ program fill
   d2t=((navg-1)*d2t-sum(vp(pth,th,0._8))*lambda/(1-nh)/d2)/navg
 !  d2t=((navg-1)*d2t-sum(sin(2*th))*lambda)/navg
   call pqnew(pth,th)
-!  call renewbd()
-!  call pqnew(pbd,thbd)
-!  call rearrangebd()
-!  call rmpos()
   call addpos()
   pth=abs(pth)
   d2=d2+d2t*dt
@@ -80,36 +76,6 @@ contains
   deallocate(padd)
   deallocate(qadd)
 
- end subroutine
-
- subroutine rmpos()
-  integer::irm,jrm
-  integer,dimension(:),allocatable::prm
-  real(8),dimension(:),allocatable::ptemp,qtemp
-  allocate(prm(size(pth)))
-  where (pth<pmin)
-   prm=1
-  elsewhere
-   prm=0
-  end where
-  nparticle=nparticle-sum(prm)
-  allocate(ptemp(size(prm)),qtemp(size(prm)))
-  ptemp=pth
-  qtemp=th
-  deallocate(pth)
-  deallocate(th)
-  allocate(pth(nparticle),th(nparticle))
-  jrm=1
-  do irm=1,size(prm)
-   if (prm(irm)==0) then
-    pth(jrm)=ptemp(irm)
-    th(jrm)=qtemp(irm)
-    jrm=jrm+1
-   end if
-  end do
-  deallocate(prm)
-  deallocate(ptemp)
-  deallocate(qtemp)
  end subroutine
 
  subroutine pqnew(p0,q0)
@@ -181,35 +147,6 @@ contains
   close(30)
   do iload=1,7
    c(iload)=sum(b(:,iload))
-  end do
- end subroutine
-
- subroutine rearrangebd()
-  integer::istart,iend
-  real(8),dimension(size(pbd))::ptmp,thtmp
-  istart=1
-  iend=size(pbd)
-  do while ((istart.le.size(pbd)).and.(thbd(istart)<0))
-   istart=istart+1
-  end do
-  do while ((iend.ge.0).and.(thbd(iend)>pi))
-   iend=iend-1
-  end do
-  ptmp(1:size(pbd)-iend)=pbd(iend+1:size(pbd))
-  ptmp(size(pbd)-iend+1:size(pbd)-istart+1)=pbd(istart:iend)
-  ptmp(size(pbd)-istart+2:size(pbd))=pbd(1:istart-1)
-  thtmp(1:size(pbd)-iend)=thbd(iend+1:size(pbd))-pi
-  thtmp(size(pbd)-iend+1:size(pbd)-istart+1)=thbd(istart:iend)
-  thtmp(size(pbd)-istart+2:size(pbd))=thbd(1:istart-1)+pi
-  pbd=ptmp
-  thbd=thtmp
- end subroutine
-
- subroutine renewbd()
-  integer::irenew
-  pbd=pmin
-  do irenew=1,nbd
-   thbd(irenew)=pi*irenew/nbd
   end do
  end subroutine
 

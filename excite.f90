@@ -15,14 +15,8 @@ program excite
  call readpos()
  call loadrk6consts()
  do imain=1,nexcite*10
-! do imain=1,10**2
   d2t=(d2end-d2)/nexcite/dt
   call pqnew(pth,th)
-!  call renewbd()
-!  call pqnew(pbd,thbd)
-!  call rearrangebd()
-!  call rmpos()
-!  call addpos()
   d2=d2+d2t*dt
   t=t+dt
  end do
@@ -33,125 +27,6 @@ program excite
  deallocate(thbd)
 
 contains
-
- subroutine addpos()
-  integer::iadd,jadd,kadd,naddsum,ntemp
-  integer,dimension(size(pbd))::nadd
-  real(8),dimension(size(pbd))::qlow,qhigh,plow,phigh
-  real(8)::qnow,addprob,flux
-  real(8),dimension(:),allocatable::padd,qadd
-  real(8),dimension(:),allocatable::ptemp,qtemp
-
-  nadd=0
-  
-  do iadd=1,size(pbd)
-   qhigh(iadd)=thbd(iadd)
-   phigh(iadd)=pbd(iadd)
-   if (iadd==1) then
-    qlow(iadd)=thbd(size(pbd))-pi
-    plow(iadd)=pbd(size(pbd))
-   else
-    qlow(iadd)=thbd(iadd-1)
-    plow(iadd)=pbd(iadd-1)
-   end if
-
-   if ((plow(iadd)>pmin).and.(pmin>phigh(iadd))) then
-    qhigh(iadd)=qlow(iadd)+(pmin-plow(iadd))&
-                           *(qhigh(iadd)-qlow(iadd))/(phigh(iadd)-plow(iadd))
-    phigh(iadd)=pmin
-   else if ((plow(iadd)<pmin).and.(pmin<phigh(iadd))) then
-    qlow(iadd)=qhigh(iadd)+(pmin-phigh(iadd))&
-                           *(qhigh(iadd)-qlow(iadd))/(phigh(iadd)-plow(iadd))
-    plow(iadd)=pmin
-   end if
-   flux=den*(qhigh(iadd)-qlow(iadd))&
-                         *((phigh(iadd)+plow(iadd))/2-pmin)
-   if (flux>0) then
-    nadd(iadd)=floor(flux)
-    call random_number(addprob)
-    if (addprob<mod(flux,1._8)) nadd(iadd)=nadd(iadd)+1
-   end if
-  end do
-
-  naddsum=sum(nadd)
-  allocate(padd(naddsum),qadd(naddsum))
-  kadd=1
-
-  do iadd=1,size(pbd)
-   do jadd=1,nadd(iadd)
-    call random_number(qadd(kadd))
-    call random_number(padd(kadd))
-!    qadd(kadd)=(qhigh(iadd)-qlow(iadd))&
-!                *(-(plow(iadd)-pmin)&
-!                  +sqrt((plow(iadd)-pmin)**2&
-!                        +qadd(kadd)*(phigh(iadd)+plow(iadd)-2*pmin)&
-!                                   *(phigh(iadd)-plow(iadd))))&
-!                /(phigh(iadd)-plow(iadd))&
-!               +qlow(iadd)
-!    padd(kadd)=pmin+(qadd(kadd)-qlow(iadd))/(qhigh(iadd)-qlow(iadd))&
-!                    *(phigh(iadd)-plow(iadd))*padd(kadd)
-    qadd(kadd)=qlow(iadd)+qadd(kadd)*(qhigh(iadd)-qlow(iadd))
-    padd(kadd)=pmin+padd(kadd)*(max(phigh(iadd),plow(iadd))-pmin)
-    do while (padd(kadd)>plow(iadd)+(qadd(kadd)-qlow(iadd))&
-                                    /(qhigh(iadd)-qlow(iadd))*(phigh(iadd)-plow(iadd)))
-     call random_number(qadd(kadd))
-     call random_number(padd(kadd))
-     qadd(kadd)=qlow(iadd)+qadd(kadd)*(qhigh(iadd)-qlow(iadd))
-     padd(kadd)=pmin+padd(kadd)*(max(phigh(iadd),plow(iadd))-pmin)
-    end do
-    kadd=kadd+1
-   end do
-  end do
-
-  ntemp=nparticle+naddsum
-  allocate(ptemp(ntemp),qtemp(ntemp))
-  ptemp(1:nparticle)=pth
-  qtemp(1:nparticle)=th
-  ptemp(nparticle+1:ntemp)=padd
-  qtemp(nparticle+1:ntemp)=mod(qadd+pi,pi)
-  deallocate(pth)
-  deallocate(th)
-  nparticle=ntemp
-  allocate(pth(nparticle),th(nparticle))
-  pth=ptemp
-  th=qtemp
-  deallocate(ptemp)
-  deallocate(qtemp)
-
-  deallocate(padd)
-  deallocate(qadd)
-
- end subroutine
-
- subroutine rmpos()
-  integer::irm,jrm
-  integer,dimension(:),allocatable::prm
-  real(8),dimension(:),allocatable::ptemp,qtemp
-  allocate(prm(size(pth)))
-  where (pth<pmin)
-   prm=1
-  elsewhere
-   prm=0
-  end where
-  nparticle=nparticle-sum(prm)
-  allocate(ptemp(size(prm)),qtemp(size(prm)))
-  ptemp=pth
-  qtemp=th
-  deallocate(pth)
-  deallocate(th)
-  allocate(pth(nparticle),th(nparticle))
-  jrm=1
-  do irm=1,size(prm)
-   if (prm(irm)==0) then
-    pth(jrm)=ptemp(irm)
-    th(jrm)=qtemp(irm)
-    jrm=jrm+1
-   end if
-  end do
-  deallocate(prm)
-  deallocate(ptemp)
-  deallocate(qtemp)
- end subroutine
 
  subroutine pqnew(p0,q0)
   real(8),dimension(:)::p0,q0
@@ -224,35 +99,6 @@ contains
   end do
  end subroutine
 
- subroutine rearrangebd()
-  integer::istart,iend
-  real(8),dimension(size(pbd))::ptmp,thtmp
-  istart=1
-  iend=size(pbd)
-  do while ((istart.le.size(pbd)).and.(thbd(istart)<0))
-   istart=istart+1
-  end do
-  do while ((iend.ge.0).and.(thbd(iend)>pi))
-   iend=iend-1
-  end do
-  ptmp(1:size(pbd)-iend)=pbd(iend+1:size(pbd))
-  ptmp(size(pbd)-iend+1:size(pbd)-istart+1)=pbd(istart:iend)
-  ptmp(size(pbd)-istart+2:size(pbd))=pbd(1:istart-1)
-  thtmp(1:size(pbd)-iend)=thbd(iend+1:size(pbd))-pi
-  thtmp(size(pbd)-iend+1:size(pbd)-istart+1)=thbd(istart:iend)
-  thtmp(size(pbd)-istart+2:size(pbd))=thbd(1:istart-1)+pi
-  pbd=ptmp
-  thbd=thtmp
- end subroutine
-
- subroutine renewbd()
-  integer::irenew
-  pbd=pmin
-  do irenew=1,nbd
-   thbd(irenew)=pi*irenew/nbd
-  end do
- end subroutine
-
  subroutine writepos()
   integer::iwrite
   open(30,file="posstart.dat",status="replace")
@@ -262,11 +108,6 @@ contains
    write(30,*) pth(iwrite), th(iwrite)
   end do
   close(30)
-!  open(30,file="posbd.dat",status="replace")
-!  do iwrite=1,nbd
-!   write(30,*) pbd(iwrite), thbd(iwrite)
-!  end do
-!  close(30)  
  end subroutine
 
  subroutine readpos()
