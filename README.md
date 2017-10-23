@@ -1,1 +1,1 @@
-This is a very original version of the m=2 diocotron mode simulation with a constant density halo expanding outward from r=0.
+This is the version of the m=2 diocotron mode simulation with a constant density halo expanding outward, and the constant density halo starts from the plasma radius. Before the plasma radius the halo density is low.
