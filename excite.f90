@@ -4,11 +4,10 @@ program excite
  real(8)::pi=acos(-1._8),d2=.0_8,d2t,d2end=.05
  real(8)::t=0._8,tend=200._8,dt=.1_8
  real(8),dimension(:),allocatable::pth,th
- real(8),dimension(:),allocatable::pbd,thbd
  real(8),dimension(7,7)::b
  real(8),dimension(7)::a,c
  real(8)::Pt,G,pmin,den,pr,nh,Pw
- integer::nexcite=10**4,nbd=10**2
+ integer::nexcite=10**4
 
  call initran()
  call readparameter()
@@ -23,8 +22,6 @@ program excite
  call writepos()
  deallocate(pth)
  deallocate(th)
- deallocate(pbd)
- deallocate(thbd)
 
 contains
 
@@ -119,7 +116,6 @@ contains
    read(30,*) pth(iread), th(iread)
   end do
   close(30)
-  allocate(pbd(nbd),thbd(nbd))
  end subroutine
 
  subroutine readparameter()
