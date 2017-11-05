@@ -5,7 +5,7 @@
  real(8)::Pt,G,nh
  real(8)::pran,rparticle
  real(8),dimension(:),allocatable::ptot,qtot
- real(8)::pmax=1.1_8,pmin
+ real(8)::pmax=.5_8,pmin
  integer::ntot,nparticle=0,i
 
  open(31,file="parameter.dat",status="old")

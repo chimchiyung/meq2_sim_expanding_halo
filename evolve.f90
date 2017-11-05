@@ -1,10 +1,11 @@
 program evolve
  implicit none
- integer::nparticle,nbd=10**2,irun,navg=10**5,irec
+ integer::nparticle,irun,navg=10**5,irec
  real(8)::pi=acos(-1._8),d2,d2t=0._8
- real(8)::t=0._8,tend=1._8*10**6,dt=.1_8
+ real(8)::t=0._8,dt=.1_8
+ real(8)::tend=1._8*10**6
+ !real(8)::tend=1._8*10**6
  real(8),dimension(:),allocatable::pth,th
- real(8),dimension(:),allocatable::pbd,thbd
  real(8),dimension(7,7)::b
  real(8),dimension(7)::a,c
  real(8)::Pt,G,pmin,den,pr,lambda,nh,Pw
@@ -26,7 +27,7 @@ program evolve
   d2=d2+d2t*dt
   t=t+dt
   irec=irec+1
-  if (mod(irec,10**3)==0) then
+  if (mod(irec,10**3)==0) then !used to be 10**3
    write(50,*) t,d2
    irec=0
   end if
@@ -35,14 +36,11 @@ program evolve
  close(50)
  deallocate(pth)
  deallocate(th)
- deallocate(pbd)
- deallocate(thbd)
 
 contains
 
  subroutine addpos()
   integer::iadd,jadd,naddsum,ntemp,nadd
-  real(8),dimension(size(pbd))::qlow,qhigh,plow,phigh
   real(8)::qnow,addprob,flux,radd=0._8
   real(8),dimension(:),allocatable::padd,qadd
   real(8),dimension(:),allocatable::ptemp,qtemp
@@ -88,7 +86,7 @@ contains
   dp=0._8
   dq=0._8
   do l1=1,6
-   dp(:,l1)=(vp(p1,q1,c(l1))+Pt)*dt
+   dp(:,l1)=(vp(p1,q1,c(l1))+Ptfn(sqrt(p1)))*dt
    dq(:,l1)=vq(p1,q1,c(l1))*dt
    p1=p0
    q1=q0
@@ -97,7 +95,7 @@ contains
     q1=q1+b(l2,l1+1)*dq(:,l2)
    end do
   end do
-  dp(:,7)=(vp(p1,q1,c(l1))+Pt)*dt
+  dp(:,7)=(vp(p1,q1,c(l1))+Ptfn(sqrt(p1)))*dt
   dq(:,7)=vq(p1,q1,c(l1))*dt
   do l1=1,7
    p0=p0+a(l1)*dp(:,l1)
@@ -137,6 +135,26 @@ contains
   end do
  end function
 
+ function Ptfn(x)
+  real(8),dimension(:)::x
+  real(8),dimension(size(x))::Ptfn
+  Ptfn=Pt*nh/nhgen(x)
+ end function
+
+ function nhgen(x)
+  real(8),dimension(:)::x
+  real(8),dimension(size(x))::nhgen
+  real(8)::nh0=.01_8,rnh=.1_8
+  nhgen=nh0*(rnh+(1._8-rnh)*stepfn(x-1._8,.001_8))
+ end function
+
+ function stepfn(x,del)
+  real(8),dimension(:)::x
+  real(8),dimension(size(x))::stepfn
+  real(8)::del
+  stepfn=(1+tanh(x/del))/2
+ end function
+
  subroutine loadrk6consts()
   integer::iload
   open(30,file="rk6consts.dat",status="old")
@@ -171,7 +189,6 @@ contains
    read(30,*) pth(iread), th(iread)
   end do
   close(30)
-  allocate(pbd(nbd),thbd(nbd))
  end subroutine
 
  subroutine readparameter()
