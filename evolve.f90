@@ -3,8 +3,8 @@ program evolve
  integer::nparticle,irun,navg=10**5,irec
  real(8)::pi=acos(-1._8),d2,d2t=0._8
  real(8)::t=0._8,dt=.1_8
+ real(8)::domega,domegat=0._8
  real(8)::tend=1._8*10**6
- !real(8)::tend=1._8*10**6
  real(8),dimension(:),allocatable::pth,th
  real(8),dimension(7,7)::b
  real(8),dimension(7)::a,c
@@ -15,20 +15,23 @@ program evolve
  call readpos()
  call loadrk6consts()
  open(50,file="d2.dat")
- write(50,*) t,d2
+ write(50,*) t,d2,domega
  irec=1
 ! do while (t<tend)
  do while ((.06_8>d2).and.(d2>.01_8).and.(t<tend))
-  d2t=((navg-1)*d2t-sum(vp(pth,th,0._8))*lambda/(1-nh)/d2)/navg
+  d2t=((navg-1)*d2t+d2tInt())/navg
 !  d2t=((navg-1)*d2t-sum(sin(2*th))*lambda)/navg
+  domegat=(dOmegaInt()-domega)/dt/navg
   call pqnew(pth,th)
   call addpos()
+  !call rmpos()
   pth=abs(pth)
   d2=d2+d2t*dt
+  domega=domega+domegat*dt
   t=t+dt
   irec=irec+1
-  if (mod(irec,10**3)==0) then !used to be 10**3
-   write(50,*) t,d2
+  if (mod(irec,10**3)==0) then
+   write(50,*) t,d2,domega
    irec=0
   end if
  end do
@@ -38,6 +41,36 @@ program evolve
  deallocate(th)
 
 contains
+
+ subroutine rmpos()
+  integer::irm,jrm
+  integer,dimension(:),allocatable::prm
+  real(8),dimension(:),allocatable::ptemp,qtemp
+  allocate(prm(size(pth)))
+  where (pth>Pw)
+   prm=1
+  elsewhere
+   prm=0
+  end where
+  nparticle=nparticle-sum(prm)
+  allocate(ptemp(size(prm)),qtemp(size(prm)))
+  ptemp=pth
+  qtemp=th
+  deallocate(pth)
+  deallocate(th)
+  allocate(pth(nparticle),th(nparticle))
+  jrm=1
+  do irm=1,size(prm)
+   if (prm(irm)==0) then
+    pth(jrm)=ptemp(irm)
+    th(jrm)=qtemp(irm)
+    jrm=jrm+1
+   end if
+  end do
+  deallocate(prm)
+  deallocate(ptemp)
+  deallocate(qtemp)
+ end subroutine
 
  subroutine addpos()
   integer::iadd,jadd,naddsum,ntemp,nadd
@@ -122,17 +155,26 @@ contains
   integer::iq
   do iq=1,size(p0)
    if (p0(iq)<1) then
-    vq(iq)=(1-nh)*(-1+1/pr)&
+    vq(iq)=(-1+1/pr)&
            +(d2+d2t*cq*dt)&
-            *(1-nh)&
             *(1-1/Pw**2)*cos(2*q0(iq))
    else
-    vq(iq)=(1-nh)*(-1/p0(iq)+1/pr)&
+    vq(iq)=(-1/p0(iq)+1/pr)&
            +(d2+d2t*cq*dt)&
-            *(1-nh)&
-            *(-1/p0(iq)-1/Pw**2)*cos(2*q0(iq))
+            *(-1/p0(iq)**2-1/Pw**2)*cos(2*q0(iq))
    end if
   end do
+  vq=vq-(domega+cq*dt*domegat)/2
+ end function
+
+ function d2tInt()
+  real(8)::d2tInt
+  d2tInt=-sum(vp(pth,th,0._8))*lambda/d2
+ end function
+
+ function dOmegaInt()
+  real(8)::dOmegaInt
+  dOmegaInt=sum(vp(pth,th,0._8)/tan(2*th))*lambda/d2**2
  end function
 
  function Ptfn(x)
@@ -172,7 +214,7 @@ contains
   integer::iwrite
   open(30,file="pos.dat",status="replace")
   write(30,*) nparticle
-  write(30,*) d2
+  write(30,*) d2,domega
   do iwrite=1,nparticle
    write(30,*) pth(iwrite), th(iwrite)
   end do
@@ -183,7 +225,7 @@ contains
   integer::iread
   open(30,file="posstart.dat",status="old")
   read(30,*) nparticle
-  read(30,*) d2
+  read(30,*) d2,domega
   allocate(pth(nparticle),th(nparticle))
   do iread=1,nparticle
    read(30,*) pth(iread), th(iread)

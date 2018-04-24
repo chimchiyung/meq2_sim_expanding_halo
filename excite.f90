@@ -1,13 +1,14 @@
 program excite
  implicit none
  integer::nparticle,imain
- real(8)::pi=acos(-1._8),d2=.0_8,d2t,d2end=.05
+ real(8)::pi=acos(-1._8),d2=.0_8,d2t,d2end=.05_8
+ real(8)::domega=0._8,domegat=0._8
  real(8)::t=0._8,tend=200._8,dt=.1_8
  real(8),dimension(:),allocatable::pth,th
  real(8),dimension(7,7)::b
  real(8),dimension(7)::a,c
- real(8)::Pt,G,pmin,den,pr,nh,Pw
- integer::nexcite=10**4
+ real(8)::Pt,G,pmin,den,pr,lambda,nh,Pw
+ integer::nexcite=10**4,navg=10**3
 
  call initran()
  call readparameter()
@@ -15,8 +16,12 @@ program excite
  call loadrk6consts()
  do imain=1,nexcite*10
   d2t=(d2end-d2)/nexcite/dt
+  if (imain>100) then
+   domegat=(dOmegaInt()-domega)/dt/navg
+  end if
   call pqnew(pth,th)
   d2=d2+d2t*dt
+  domega=domega+domegat*dt
   t=t+dt
  end do
  call writepos()
@@ -59,7 +64,7 @@ contains
   real(8)::cp
   integer::ip
   do ip=1,size(p0)
-   vp(ip)=(d2+d2t*cp*dt)*(1-nh)*(min(p0(ip),1._8)/max(p0(ip),1._8)-p0(ip)/Pw**2)*2*sin(2*q0(ip))
+   vp(ip)=(d2+d2t*cp*dt)*(min(p0(ip),1._8)/max(p0(ip),1._8)-p0(ip)/Pw**2)*2*sin(2*q0(ip))
   end do
  end function
 
@@ -70,17 +75,21 @@ contains
   integer::iq
   do iq=1,size(p0)
    if (p0(iq)<1) then
-    vq(iq)=(1-nh)*(-1+1/pr)&
+    vq(iq)=(-1+1/pr)&
            +(d2+d2t*cq*dt)&
-            *(1-nh)&
             *(1-1/Pw**2)*cos(2*q0(iq))
    else
-    vq(iq)=(1-nh)*(-1/p0(iq)+1/pr)&
+    vq(iq)=(-1/p0(iq)+1/pr)&
            +(d2+d2t*cq*dt)&
-            *(1-nh)&
             *(-1/p0(iq)-1/Pw**2)*cos(2*q0(iq))
    end if
   end do
+  vq=vq-(domega+cq*dt*domegat)/2
+ end function
+
+ function dOmegaInt()
+  real(8)::dOmegaInt
+  dOmegaInt=sum(vp(pth,th,0._8)/tan(2*th))*lambda/d2**2
  end function
 
  subroutine loadrk6consts()
@@ -100,7 +109,7 @@ contains
   integer::iwrite
   open(30,file="posstart.dat",status="replace")
   write(30,*) nparticle
-  write(30,*) d2
+  write(30,*) d2,domega
   do iwrite=1,nparticle
    write(30,*) pth(iwrite), th(iwrite)
   end do
@@ -134,6 +143,7 @@ contains
   read(31,*) Pw
   close(31)
   den=G/(2*pi*Pt)
+  lambda=nh*Pt/G
   Pw=1/Pw
   pr=2._8/(1-1/Pw**2)
  end subroutine
