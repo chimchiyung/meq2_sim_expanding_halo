@@ -81,7 +81,7 @@ contains
    else
     vq(iq)=(-1/p0(iq)+1/pr)&
            +(d2+d2t*cq*dt)&
-            *(-1/p0(iq)-1/Pw**2)*cos(2*q0(iq))
+            *(-1/p0(iq)**2-1/Pw**2)*cos(2*q0(iq))
    end if
   end do
   vq=vq-(domega+cq*dt*domegat)/2
@@ -145,7 +145,7 @@ contains
   den=G/(2*pi*Pt)
   lambda=nh*Pt/G
   Pw=1/Pw
-  pr=2._8/(1-1/Pw**2)
+  pr=2._8/(1+1/Pw**2)
  end subroutine
 
  subroutine initran()

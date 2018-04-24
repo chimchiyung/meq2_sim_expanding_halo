@@ -251,7 +251,7 @@ contains
   den=G/(2*pi*Pt)
   lambda=nh*Pt/G
   Pw=1/Pw
-  pr=2._8/(1-1/Pw**2)
+  pr=2._8/(1+1/Pw**2)
  end subroutine
 
  subroutine initran()
