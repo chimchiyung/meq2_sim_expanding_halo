@@ -8,7 +8,7 @@ implicit none
  rw=3.5_8
  rc2=1.9_8
  rp=rc2/sqrt(2._8)
- vr=.8_8*.1
+ vr=1._8*.1_8
  nh=10._8**5
  n0=10._8**7
  B=1.2*10._8**4
@@ -18,8 +18,8 @@ implicit none
  omegaE=omegap**2/(2*omegac)
 
  Pt=(2*rc2*vr/rp**2)/omegaE
- G=.1_8**2
-! G=5*.1_8**2
+! G=1*.1_8**1
+ G=1*.1_8**2
  pmin=0._8
 
  open(30,file="parameter.dat",status="replace")
